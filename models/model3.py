@@ -1,13 +1,13 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-class Model2(nn.Module):
+class Model3(nn.Module):
     def __init__(self):
-        super(Model2, self).__init__()
+        super(Model3, self).__init__()
         self.conv1 = nn.Conv2d(in_channels = 1, out_channels = 40, kernel_size = 5)
         self.conv2 = nn.Conv2d(in_channels = 40, out_channels = 50, kernel_size = 5)
         self.fc1 = nn.Linear(4*4*50, 100)
-        self.fc2 = nn.Linear(100, 10)
+        self.fc2 = nn.Linear(100, 1)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))

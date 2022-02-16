@@ -7,44 +7,38 @@ from torch.autograd import Variable
 import torch.optim as optim
 
 from tqdm import tqdm
-from time import sleep
 import pickle
+
 from models.model1 import Model1
+from models.model2 import Model2
 
-
-def train_model(model_name:str, train_loader, test_loader, save_path:str,cuda:bool, datasetName = "MNIST",EPOCHS = 15):
+def train_model(model_name:str, train_loader, test_loader, save_path:str,cuda:bool, dataset_name = "MNIST",EPOCHS = 15):
+    '''
+    '''
     if model_name == "model1":
         model = Model1()
     else:
         model = Model2()
-    
-    losses = []
-    best_acc = 0
-    optimizer = optim.Adam(model.parameters(), lr=1e-3) 
-    model.train()
-    
-    for epoch in range(EPOCHS):
         
-        # Training
-        for batch_idx, (data, target) in enumerate(train_loader):
-            data, target = Variable(data), Variable(target)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3) 
+    losses = []
+    best_accuracy = 0
 
-            if cuda:
-                data, target = data.cuda(), target.cuda()
+    model.train()
+    for epoch in range(EPOCHS):
+        for batch_idx, (data, target) in enumerate(train_loader):
+            
+            data, target = Variable(data), Variable(target)
+            if cuda: data, target = data.cuda(), target.cuda()
 
             optimizer.zero_grad()
-            
-            # Forward
-            y_pred = model(data)[0]
+
+            y_pred = model(data) 
             loss = F.cross_entropy(y_pred, target)
             losses.append(loss.cpu().data)
-            #losses.append(loss.cpu().data[0])     
-    
-            # Backward
             loss.backward()
             optimizer.step()
 
-            # Display
             if batch_idx % 100 == 1:
                 print('\r Train Epoch: {}/{} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     epoch+1,
@@ -54,27 +48,16 @@ def train_model(model_name:str, train_loader, test_loader, save_path:str,cuda:bo
                     100. * batch_idx / len(train_loader), 
                     loss.cpu().data), 
                     end='')
-                
-        # Validation
+        # Eval
         evaluate_x = Variable(test_loader.dataset.data.type_as(torch.FloatTensor()))
         evaluate_y = Variable(test_loader.dataset.targets)
-        if cuda:
-            evaluate_x, evaluate_y = evaluate_x.cuda(), evaluate_y.cuda()
+        if cuda: evaluate_x, evaluate_y = evaluate_x.cuda(), evaluate_y.cuda()
 
         model.eval()
-        output = model(evaluate_x[:,None,...])[0]
+        output = model(evaluate_x[:,None,...])
         pred = output.data.max(1)[1]
         d = pred.eq(evaluate_y.data).cpu()
         accuracy = d.sum().type(dtype=torch.float64)/d.size()[0]
-
-        # save best
-        if accuracy > best_acc:
-            best_acc = accuracy
-            torch.save({'epoch': epoch,
-                      'model': model.state_dict(),
-                      'optimizer': optimizer.state_dict()
-                     }, f'{save_path}/{datasetName}_epoch_{epoch}.pth')
-            print('\r Best model saved.\r')
 
         print('\r Train Epoch: {}/{} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\t Test Accuracy: {:.4f}%'.format(
             epoch+1,
@@ -85,3 +68,21 @@ def train_model(model_name:str, train_loader, test_loader, save_path:str,cuda:bo
             loss.cpu().data,
             accuracy*100,
             end=''))
+        if accuracy > best_accuracy:
+            best_accuracy = accuracy
+            torch.save({'epoch': epoch,
+                            'model': model.state_dict(),
+                            'optimizer': optimizer.state_dict()
+                           }, f'{save_path}/{dataset_name}_{model_name}_best.pth')
+            print('\r Best model saved.\r')
+
+        
+def load_model(save_path):
+    '''
+    '''
+    mnist_model1, mnist_model2, fashion_model1, fashion_model2 = Model1(), Model2(), Model1(), Model2()
+    mnist_model1.load_state_dict(torch.load(save_path+"/MNIST_model1_best.pth")["model"])
+    mnist_model2.load_state_dict(torch.load(save_path+"/MNIST_model2_best.pth")["model"])
+    fashion_model1.load_state_dict(torch.load(save_path+"/FASHION_model1_best.pth")["model"])
+    fashion_model2.load_state_dict(torch.load(save_path+"/FASHION_model2_best.pth")["model"])
+    return mnist_model1, mnist_model2, fashion_model1, fashion_model2
